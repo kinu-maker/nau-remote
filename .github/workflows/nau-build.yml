@@ -1,0 +1,20 @@
+name: NAU Remote build
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag the installers are published under"
+        type: string
+        default: "nau-test"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    uses: ./.github/workflows/flutter-build.yml
+    secrets: inherit
+    with:
+      upload-artifact: true
+      upload-tag: ${{ inputs.tag }}
