@@ -94,7 +94,10 @@ class _NauLoginPageState extends State<NauLoginPage> {
     _optionsLoading.value = true;
     _optionsError.value = '';
     try {
-      _options.value = await UserModel.queryOidcLoginOptions();
+      // "webauth" is the server's own web login page, not a company sign-in.
+      _options.value = (await UserModel.queryOidcLoginOptions())
+          .where((e) => e['name'] != 'webauth')
+          .toList();
     } catch (e) {
       debugPrint('queryOidcLoginOptions failed: $e');
       _optionsError.value = '서버에 연결하지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도하세요.';
