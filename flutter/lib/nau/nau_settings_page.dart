@@ -7,6 +7,7 @@ import 'package:flutter_hbb/common/widgets/login.dart';
 import 'package:flutter_hbb/consts.dart';
 import 'package:flutter_hbb/desktop/pages/desktop_keyboard_shortcuts_page.dart';
 import 'package:flutter_hbb/models/platform_model.dart';
+import 'package:flutter_hbb/models/server_model.dart';
 import 'package:get/get.dart';
 
 import 'nau_theme.dart';
@@ -22,6 +23,7 @@ class NauSettingsPage extends StatefulWidget {
 
 class _NauSettingsPageState extends State<NauSettingsPage> {
   bool _allowRemote = true;
+  bool _passwordSet = false;
   String _quality = kRemoteImageQualityBalanced;
   String _myId = '';
 
@@ -35,6 +37,8 @@ class _NauSettingsPageState extends State<NauSettingsPage> {
   void initState() {
     super.initState();
     _allowRemote = !mainGetBoolOptionSync(kOptionStopService);
+    _passwordSet =
+        bind.mainGetOptionSync(key: 'permanent-password-set') == 'true';
     final quality = bind.mainGetUserDefaultOption(key: kOptionImageQuality);
     if (_qualityLabels.containsKey(quality)) _quality = quality;
     bind.mainGetMyId().then((id) {
@@ -45,6 +49,84 @@ class _NauSettingsPageState extends State<NauSettingsPage> {
   Future<void> _setAllowRemote(bool allow) async {
     setState(() => _allowRemote = allow);
     await mainSetBoolOption(kOptionStopService, !allow);
+  }
+
+  Future<void> _setPassword() async {
+    final pw = TextEditingController();
+    final pw2 = TextEditingController();
+    String? error;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) =>
+          StatefulBuilder(builder: (context, setDialogState) {
+        Future<void> submit() async {
+          if (pw.text.length < 6) {
+            setDialogState(() => error = '6자 이상이어야 합니다.');
+            return;
+          }
+          if (pw.text != pw2.text) {
+            setDialogState(() => error = '두 번 입력한 값이 다릅니다.');
+            return;
+          }
+          final saved =
+              await bind.mainSetPermanentPasswordWithResult(password: pw.text);
+          if (!saved) {
+            setDialogState(() => error = '저장하지 못했습니다. 다시 시도하세요.');
+            return;
+          }
+          // The new UI never shows the one-time password, so only the fixed one counts.
+          await bind.mainSetOption(
+              key: kOptionVerificationMethod, value: kUsePermanentPassword);
+          if (context.mounted) Navigator.of(context).pop(true);
+        }
+
+        return AlertDialog(
+          backgroundColor: NauColors.panel,
+          title: Text('접속 비밀번호',
+              style: nauText(size: 18, weight: FontWeight.w700)),
+          content: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('다른 기기에서 이 컴퓨터에 들어올 때 입력할 비밀번호입니다.',
+                    style: nauText(
+                        size: 13, color: NauColors.textSecondary, height: 1.5)),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: pw,
+                  obscureText: true,
+                  autofocus: true,
+                  style: nauText(),
+                  decoration: nauInputDecoration(hint: '새 비밀번호 (6자 이상)'),
+                  onChanged: (_) {
+                    if (error != null) setDialogState(() => error = null);
+                  },
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: pw2,
+                  obscureText: true,
+                  style: nauText(),
+                  decoration:
+                      nauInputDecoration(hint: '다시 입력', errorText: error),
+                  onSubmitted: (_) => submit(),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            NauButton(
+                label: '취소', onPressed: () => Navigator.of(context).pop(false)),
+            NauButton(label: '저장', primary: true, onPressed: submit),
+          ],
+        );
+      }),
+    );
+    pw.dispose();
+    pw2.dispose();
+    if (ok == true && mounted) setState(() => _passwordSet = true);
   }
 
   Future<void> _setQuality(String? value) async {
@@ -115,6 +197,15 @@ class _NauSettingsPageState extends State<NauSettingsPage> {
           activeColor: NauColors.accent,
           onChanged: _setAllowRemote,
         ),
+      ),
+      _row(
+        label: _label(
+            '접속 비밀번호',
+            _passwordSet
+                ? '설정됨. 다른 기기에서 들어올 때 이 비밀번호를 입력합니다'
+                : '아직 없음. 비밀번호가 없으면 들어올 때마다 이 컴퓨터에서 수락을 눌러야 합니다'),
+        trailing: NauButton(
+            label: _passwordSet ? '변경' : '설정', onPressed: _setPassword),
       ),
       _row(
         label: _label('컴퓨터 이름'),
