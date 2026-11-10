@@ -212,6 +212,11 @@ class UserModel {
     if (body['error'] != null) {
       throw RequestException(0, body['error']);
     }
+    // rustdesk-api refuses a banned login with {code, message} instead of {error}.
+    if (body['type'] == null && body['message'] != null) {
+      throw RequestException(
+          body['code'] is int ? body['code'] : 0, body['message'].toString());
+    }
 
     return getLoginResponseFromAuthBody(body);
   }

@@ -158,7 +158,9 @@ class _NauLoginPageState extends State<NauLoginPage> {
           type: HttpType.kAuthReqTypeAccount));
       await _handleResponse(resp, true);
     } on RequestException catch (err) {
-      _passwordError = translate(err.cause);
+      _passwordError = err.statusCode == 423
+          ? '로그인 실패가 여러 번 쌓여 잠시 차단되었습니다. 잠시 후 다시 시도하세요.'
+          : translate(err.cause);
     } catch (err) {
       debugPrint('login failed: $err');
       _passwordError = '서버에 연결하지 못했습니다. 인터넷 연결을 확인한 뒤 다시 시도하세요.';
